@@ -1,5 +1,6 @@
 ---
-description: Create structured implementation plan in docs/plans/
+name: my-plan
+description: Use for planning work
 ---
 
 # Implementation Plan Creation
