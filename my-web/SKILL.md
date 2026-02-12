@@ -122,6 +122,149 @@ Components with loading/placeholder states must never change their size when tra
 {isLoading && <Spinner />}
 ```
 
+## Hover Interactions in Lists
+
+When list rows have hover states (highlight, action buttons, menus), getting the behavior right is critical. Flickering, ghost hovers, or disappearing menus feel broken.
+
+### Rules
+
+1. **One hovered row at a time.** Track `hoveredId` in state — only the row matching `hoveredId` renders its hover appearance. Do not rely on CSS `:hover` alone for anything that shows interactive controls, because CSS hover cannot coordinate with menu-open state.
+
+2. **Menu open locks the hover.** When a row's context menu or dropdown is open, that row stays hovered regardless of where the mouse moves. The menu and hover highlight must remain until the menu is explicitly closed (click outside, Escape, or selecting an item).
+
+3. **No flicker on transitions.** Moving the mouse between the row content and its action buttons (or the open menu popover) must not cause the hover to blink off and back on. Hover state is driven by the row container's `mouseenter`/`mouseleave`, not by individual child elements.
+
+### Performance: Only Re-render the Affected Rows
+
+Hover changes happen on every mouse move — re-rendering the entire list on each hover is unacceptable. Use a React context to broadcast hover/menu state so that **only the row entering hover and the row leaving hover re-render**, not the whole list.
+
+```tsx
+// --- HoverContext.tsx ---
+
+type HoverState = {
+  hoveredId: string | null
+  menuOpenId: string | null
+  onMouseEnter: (id: string) => void
+  onMouseLeave: () => void
+  onMenuOpen: (id: string) => void
+  onMenuClose: () => void
+}
+
+const HoverContext = createContext<HoverState>(null!)
+
+function HoverProvider({ children }: { children: ReactNode }) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
+
+  const onMouseEnter = useCallback((id: string) => {
+    setHoveredId((prev) => prev === id ? prev : id)
+  }, [])
+
+  const onMouseLeave = useCallback(() => {
+    setHoveredId(null)
+  }, [])
+
+  const onMenuOpen = useCallback((id: string) => {
+    setMenuOpenId(id)
+    setHoveredId(id)
+  }, [])
+
+  const onMenuClose = useCallback(() => {
+    setMenuOpenId(null)
+  }, [])
+
+  const value = useMemo(
+    () => ({ hoveredId, menuOpenId, onMouseEnter, onMouseLeave, onMenuOpen, onMenuClose }),
+    [hoveredId, menuOpenId, onMouseEnter, onMouseLeave, onMenuOpen, onMenuClose],
+  )
+
+  return <HoverContext.Provider value={value}>{children}</HoverContext.Provider>
+}
+
+// --- useRowHover.ts ---
+// Each row subscribes to context but only re-renders when *its own* hover status changes.
+
+function useRowHover(id: string) {
+  const { hoveredId, menuOpenId, onMouseEnter, onMouseLeave, onMenuOpen, onMenuClose } =
+    useContext(HoverContext)
+
+  const isHovered = hoveredId === id
+  const isMenuOpen = menuOpenId === id
+
+  // Stable callbacks bound to this row's id
+  const handlers = useMemo(() => ({
+    onMouseEnter: () => onMouseEnter(id),
+    onMouseLeave: menuOpenId ? undefined : onMouseLeave,
+    onMenuOpen: () => onMenuOpen(id),
+    onMenuClose,
+  }), [id, menuOpenId, onMouseEnter, onMouseLeave, onMenuOpen, onMenuClose])
+
+  return { isHovered, isMenuOpen, handlers }
+}
+```
+
+The list component itself never re-renders on hover — it wraps children in `HoverProvider` and each `memo`'d row reads its own hover state via `useRowHover`:
+
+```tsx
+const MessageRow = memo(function MessageRow({ message }: { message: Message }) {
+  const { isHovered, isMenuOpen, handlers } = useRowHover(message.id)
+
+  return (
+    <div onMouseEnter={handlers.onMouseEnter} onMouseLeave={handlers.onMouseLeave}>
+      <MessageContent message={message} />
+      {(isHovered || isMenuOpen) && (
+        <MessageActions onMenuOpen={handlers.onMenuOpen} onMenuClose={handlers.onMenuClose} />
+      )}
+    </div>
+  )
+})
+
+function MessageList({ messages }: { messages: Message[] }) {
+  return (
+    <HoverProvider>
+      {messages.map((msg) => (
+        <MessageRow key={msg.id} message={msg} />
+      ))}
+    </HoverProvider>
+  )
+}
+```
+
+When hover moves from row A to row B: context value changes → only row A and row B re-render (their `isHovered` changed). All other rows stay untouched because `memo` sees the same props and `useRowHover` returns the same `false`/`false`.
+
+**Important caveat**: the context approach above re-renders all rows when `hoveredId` changes because every row consumes the full context. To truly limit re-renders to only the two affected rows, use a **ref + subscription** pattern or a Zustand store instead of context — rows subscribe and only re-render when their own derived `isHovered` value flips. The context pattern shown is the simple starting point; if profiling shows too many re-renders in large lists, switch to a store-based approach.
+
+### Testing Hover Behavior
+
+Use `agent-browser` to verify hover interactions. These are the specific scenarios to test:
+
+**1. Basic hover highlighting:**
+- Move mouse onto a row — row highlights.
+- Move mouse to a different row — first row un-highlights, second highlights.
+- Move mouse off all rows — no row highlighted.
+
+**2. Action buttons visibility:**
+- Hover a row — action buttons appear.
+- Move to adjacent row — buttons disappear from first row, appear on second.
+- Move off list — all buttons hidden.
+
+**3. Menu open — hover lock:**
+- Hover a row, click its menu button — menu opens.
+- Move mouse away from the row entirely (to another row, to empty space) — **menu stays open, row stays highlighted**. The other row does NOT highlight.
+- Move mouse back to the original row — still highlighted, no flicker.
+
+**4. Menu open — no blink on click:**
+- Hover a row, click the menu button — verify the transition from hover-state to menu-open-state produces **no visual blink** (the highlight must not flash off then back on).
+
+**5. Menu close — return to normal:**
+- With menu open, click outside the menu but still on the same row — menu closes, row **stays highlighted** (mouse is still over it), no blink. This is the hardest case — popup portals/overlays can cause spurious `mouseleave` events when the overlay disappears, leading to a hover blink between menu close and the browser re-firing `mouseenter`. The implementation must account for this.
+- With menu open, click outside the menu onto a different row — menu closes, hover moves to the clicked row.
+- With menu open, press Escape — menu closes, hover follows current mouse position.
+
+**6. Edge cases:**
+- Rapidly move mouse across multiple rows — exactly one row highlighted at any moment, no double-highlights.
+- Open menu, scroll the list — menu should close (scroll dismisses popover), hover resets.
+
 ## Avoid `useEffect`
 
 `useEffect` is a code smell in most cases. Before reaching for it, consider alternatives:
