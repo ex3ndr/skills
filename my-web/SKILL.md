@@ -44,6 +44,43 @@ The prefix makes it immediately clear which domain a component belongs to, even 
 
 Shared UI primitives (`components/ui/`) are the exception — `Button`, `Dialog`, `Avatar` need no domain prefix since they are domain-agnostic.
 
+### Fragments
+
+Fragments are large, self-contained UI regions — the biggest building blocks below a page. Think of them like Android Fragments or Atomic Design's organisms: a chat conversation, a profile editor, a settings form. Each fragment owns its own layout, internal state, and child components.
+
+Fragments are **not** modals, panels, or wrappers — they are the main content regions that a route composes together. A page might render one fragment (full-screen chat) or several side by side (sidebar + chat + thread panel).
+
+- Name fragments after what they **are**, not how they're displayed: `ChatConversation`, `ProfileEditor`, `ChannelSettings` — not `ChatModal`, `ProfilePanel`.
+- A fragment manages its own internal component tree but receives its key data (IDs, config) as props from the route.
+- Fragments live in a top-level `fragments/` folder. Each fragment gets its own folder, and fragment-specific components go in a `components/` subfolder within it:
+  ```
+  fragments/
+    ChatConversation/
+      ChatConversation.tsx          -> the fragment
+      components/
+        ChatMessageList.tsx         -> specific to this fragment
+        ChatComposer.tsx            -> specific to this fragment
+    ProfileEditor/
+      ProfileEditor.tsx             -> the fragment
+      components/
+        ProfileAvatarUpload.tsx
+        ProfileFormFields.tsx
+  ```
+- The separate top-level `components/` folder is for **shared, reusable** components (UI primitives, domain components used across multiple fragments). Fragment-specific components stay inside the fragment's own `components/` subfolder.
+- Route files compose fragments — they don't build UI themselves:
+  ```tsx
+  function WorkspaceRoute() {
+    const { channelId, threadId } = Route.useParams()
+    return (
+      <WorkspaceLayout>
+        <Sidebar />
+        <ChatConversation channelId={channelId} />
+        {threadId && <ThreadPanel threadId={threadId} />}
+      </WorkspaceLayout>
+    )
+  }
+  ```
+
 ### Route Files Stay Thin
 
 Route files handle **routing concerns only**: declaring the route, params, loaders, error boundaries, and rendering the top-level page component.
@@ -125,9 +162,13 @@ const channels = useStore((s) => s.channels.filter((c) => !c.archived))
 ```
 app/
   routes/          -> route files (thin shells only)
+  fragments/       -> large self-contained UI regions (ChatConversation/, ProfileEditor/, ...)
+    [Fragment]/
+      Fragment.tsx
+      components/  -> components specific to this fragment
   components/
     ui/            -> shadcn/ui primitives (button, input, dialog, avatar, etc.)
-    [domain]/      -> domain-specific components grouped by feature
+    [domain]/      -> shared domain components reused across fragments
   stores/          -> Zustand stores (one per concern)
   lib/             -> utilities, hooks, session management, route guards
   api/             -> typed API client, HTTP helpers, SSE subscriber
