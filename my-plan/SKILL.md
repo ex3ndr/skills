@@ -7,6 +7,16 @@ description: Use for planning work
 
 Create an implementation plan in `docs/plans/yyyymmdd-<task-name>.md` with interactive context gathering.
 
+## Up Front: End Result Summary (Required)
+
+**Before** parsing intent or asking detailed questions, **require a high-level explanation of the end result** with enough detail and specifics for reviewing. This summary must cover:
+
+- **What the user will have when the work is done** — deliverables, artifacts, and observable behavior
+- **Key outcomes** and how they will be verified or validated
+- **Concrete specifics** that define scope or acceptance — e.g. APIs, UI elements, files, data flows, error handling, edge cases
+
+If the initial request is vague, use the first AskUserQuestion to elicit this summary. Do not proceed to implementation planning until the end-result picture is clear and documented. Use this summary as the reference for reviewing the plan and implementation.
+
 ## Step 0: Parse Intent and Gather Context
 
 Before asking questions, understand what the user is working on:
@@ -66,12 +76,7 @@ Show the discovered context, then ask questions **one at a time** using the AskU
    - can be open-ended if constraints vary widely
    - wait for response before next question
 
-4. **Testing approach**: use AskUserQuestion - "Do you prefer TDD or regular approach?"
-   - options: "TDD (tests first)" and "Regular (code first, then tests)"
-   - store preference for reference during implementation
-   - wait for response before next question
-
-5. **Plan title**: use AskUserQuestion - "Short descriptive title?"
+4. **Plan title**: use AskUserQuestion - "Short descriptive title?"
    - provide suggested name based on intent
 
 After all questions answered, synthesize responses into plan context.
@@ -128,7 +133,7 @@ Check `docs/plans/` for existing files, then create `docs/plans/<task-name>.md`:
 - Dependencies identified: [dependencies]
 
 ## Development Approach
-- **Testing approach**: [TDD / Regular - from user preference in planning]
+- **Testing approach**: Regular (code first, then tests)
 - Complete each task fully before moving to the next
 - Make small, focused changes
 - **CRITICAL: every task MUST include new/updated tests** for code changes in that task
