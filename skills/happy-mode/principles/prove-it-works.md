@@ -15,6 +15,8 @@ Check the real thing, not a proxy:
 - Read the actual value, not a cached or derived representation
 - When verification fails, suspect the observation method before suspecting the system
 
+For UI execution, animation, or layout changes, use the profiler and frame-trace checks in [UI performance](ui-performance.md). Plan for 120 Hz or faster, verify headroom within the actual shared frame budget, and check that independently scheduled animations continue during application-thread activity. Include render-thread/GPU load. Still images cannot prove main-thread responsiveness or efficient animation.
+
 ## Script the check when you can
 
 The strongest proof is a deterministic script that re-runs the same comparison, not a one-time eyeball. Write the script, run it, and keep its output as an artifact a reviewer can re-run instead of trusting your word.

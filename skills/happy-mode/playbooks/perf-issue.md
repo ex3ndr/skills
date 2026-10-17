@@ -3,6 +3,7 @@
 **You own the measurement story. Plan, review, verify the numbers.** Tie every fix to a measurement, don't read source instead of measuring.
 
 1. Capture a baseline trace via available tools for the matching surface. Vet the baseline, and each later number, with the measurement checks in the Explain the Number principle.
+   For UI symptoms in any platform, language, or framework, follow [UI performance](../principles/ui-performance.md). Plan for 120 Hz or faster: roughly 8 ms or less belongs to the whole frame, with application tasks substantially below it. Inspect UI-critical thread tasks and headroom, worker contention, input latency, layout/paint work, actual refresh-rate deadlines, and render-thread/GPU load. Verify animation timing and interpolation run independently of main/UI/JavaScript thread activity before choosing a fix.
 2. Trace the subsystem to ground hypotheses. Don't claim a perf ceiling without running it first.
    Try the performance mantras in order, cheapest first:
    1. Don't do it. Stop work whose result nothing uses rather than cheapening it.

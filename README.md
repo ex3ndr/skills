@@ -11,7 +11,7 @@ A collection of instruction skills for Happy Agent.
 | typescript-best-practices | Model TypeScript domains and validate boundaries with repository conventions. |
 | unslop | Edit prose for clarity, concrete language, and a natural voice. |
 | sync-to-main | Commit workspace work, rebase on main, and push without force. |
-| happy-mode | Apply a principled execution style with 24 principles and 23 task playbooks. |
+| happy-mode | Apply 25 principles and 23 task playbooks, including UI performance for every platform, language, and framework. |
 
 Copy the desired folders from `skills/`, including their `references` directories, into `~/.agents/skills`. Alternatively, configure the repository's `skills/` folder as an extra skill directory in Happy's user or project `happy.toml`:
 
